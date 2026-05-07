@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Ipo {
+  id               String            @id @default(cuid())
+  name             String
+  slug             String            @unique
+  aliases          String[]
+  sector           String?
+  status           String
+  openDate         DateTime?
+  closeDate        DateTime?
+  listingDate      DateTime?
+  exchange         String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  rawTextItems     RawTextItem[]
+  cleanedTextItems CleanedTextItem[]
+  embeddingRecords EmbeddingRecord[]
+}
+
+model RawTextItem {
+  id               String            @id @default(cuid())
+  ipoId            String?
+  ipo              Ipo?              @relation(fields: [ipoId], references: [id])
+  source           String
+  sourceUrl        String?
+  externalId       String
+  rawText          String
+  author           String?
+  timestamp        DateTime?
+  likes            Int?
+  commentsCount    Int?
+  metadata         Json?
+  matchStatus      String            @default("matched")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  cleanedTextItems CleanedTextItem[]
+
+  @@unique([source, externalId])
+  @@index([ipoId])
+  @@index([source])
+  @@index([matchStatus])
+}
+
+model CleanedTextItem {
+  id               String            @id @default(cuid())
+  rawTextItemId    String            @unique
+  rawTextItem      RawTextItem       @relation(fields: [rawTextItemId], references: [id])
+  ipoId            String
+  ipo              Ipo               @relation(fields: [ipoId], references: [id])
+  cleanedText      String
+  language         String            @default("en")
+  spamScore        Float             @default(0)
+  duplicateKey     String
+  isDuplicate      Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  embeddingRecords EmbeddingRecord[]
+
+  @@index([ipoId])
+  @@index([duplicateKey])
+  @@index([isDuplicate])
+  @@index([spamScore])
+}
+
+model EmbeddingRecord {
+  id                String          @id @default(cuid())
+  cleanedTextItemId String          @unique
+  cleanedTextItem   CleanedTextItem @relation(fields: [cleanedTextItemId], references: [id])
+  ipoId             String
+  ipo               Ipo             @relation(fields: [ipoId], references: [id])
+  pineconeVectorId  String          @unique
+  embeddingModel    String
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([ipoId])
+  @@index([embeddingModel])
+}
+
+model IngestionRun {
+  id                   String    @id @default(cuid())
+  source               String
+  status               String
+  startedAt            DateTime  @default(now())
+  finishedAt           DateTime?
+  iposProcessed        Int       @default(0)
+  rawItemsCollected    Int       @default(0)
+  matchedItems         Int       @default(0)
+  duplicatesSkipped    Int       @default(0)
+  spamSkipped          Int       @default(0)
+  embeddingsGenerated  Int       @default(0)
+  pineconeUpserts      Int       @default(0)
+  errors               Int       @default(0)
+  metadata             Json?
+}

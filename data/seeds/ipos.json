@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Ather Energy",
+    "slug": "ather-energy",
+    "aliases": ["Ather", "Ather IPO", "Ather Energy IPO"],
+    "sector": "Electric Vehicles",
+    "status": "active",
+    "exchange": "NSE/BSE"
+  },
+  {
+    "name": "Borana Weaves",
+    "slug": "borana-weaves",
+    "aliases": ["Borana", "Borana IPO", "Borana Weaves IPO"],
+    "sector": "Textiles",
+    "status": "active",
+    "exchange": "NSE/BSE"
+  },
+  {
+    "name": "Schloss Bangalore",
+    "slug": "schloss-bangalore",
+    "aliases": ["Schloss", "Schloss Bangalore IPO", "Leela Hotels IPO"],
+    "sector": "Hospitality",
+    "status": "upcoming",
+    "exchange": "NSE/BSE"
+  },
+  {
+    "name": "Belrise Industries",
+    "slug": "belrise-industries",
+    "aliases": ["Belrise", "Belrise IPO", "Belrise Industries IPO"],
+    "sector": "Auto Components",
+    "status": "upcoming",
+    "exchange": "NSE/BSE"
+  },
+  {
+    "name": "Asston Pharmaceuticals",
+    "slug": "asston-pharmaceuticals",
+    "aliases": ["Asston", "Asston IPO", "Asston Pharmaceuticals IPO"],
+    "sector": "Pharmaceuticals",
+    "status": "upcoming",
+    "exchange": "NSE/BSE"
+  },
+  {
+    "name": "Blue Water Logistics",
+    "slug": "blue-water-logistics",
+    "aliases": ["Blue Water", "Blue Water IPO", "Blue Water Logistics IPO"],
+    "sector": "Logistics",
+    "status": "upcoming",
+    "exchange": "NSE SME"
+  }
+]
