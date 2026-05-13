@@ -1,22 +1,18 @@
 import "dotenv/config";
 import { prisma } from "../../../../packages/db/src/client.js";
-import { collectNewsItems } from "../../../../packages/ingestion/src/newsCollector.js";
+import { collectManualItems } from "../../../../packages/ingestion/src/manualImportCollector.js";
 import { storeRawTextItems } from "../../../../packages/ingestion/src/rawTextStore.js";
 import { loadIpoCandidates } from "../lib/loadIpos.js";
 
 async function main() {
-  let run: Awaited<ReturnType<typeof prisma.ingestionRun.create>> | undefined;
+  const run = await prisma.ingestionRun.create({
+    data: { source: "manual", status: "running" }
+  });
 
   try {
     const ipos = await loadIpoCandidates(prisma);
-    await prisma.$disconnect();
-
-    const items = await collectNewsItems(ipos);
-    run = await prisma.ingestionRun.create({
-      data: { source: "news", status: "running" }
-    });
+    const items = await collectManualItems(ipos);
     const result = await storeRawTextItems(prisma, items);
-    console.log(result);
 
     await prisma.ingestionRun.update({
       where: { id: run.id },
@@ -29,19 +25,17 @@ async function main() {
       }
     });
 
-    console.log(`News ingestion complete: ${result.collected} items, ${result.matched} matched`);
+    console.log(`Manual ingestion complete: ${result.collected} items, ${result.matched} matched`);
   } catch (error) {
-    if (run) {
-      await prisma.ingestionRun.update({
-        where: { id: run.id },
-        data: {
-          status: "failed",
-          finishedAt: new Date(),
-          errors: 1,
-          metadata: { error: error instanceof Error ? error.message : String(error) }
-        }
-      });
-    }
+    await prisma.ingestionRun.update({
+      where: { id: run.id },
+      data: {
+        status: "failed",
+        finishedAt: new Date(),
+        errors: 1,
+        metadata: { error: error instanceof Error ? error.message : String(error) }
+      }
+    });
     throw error;
   }
 }

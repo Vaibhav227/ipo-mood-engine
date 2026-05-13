@@ -1,0 +1,18 @@
+[
+  {
+    "ipo": "Ather Energy",
+    "sourceUrl": "manual://sample/ather-1",
+    "text": "Ather IPO has strong listing gain chatter, but some investors are worried about valuation.",
+    "author": "manual_sample",
+    "timestamp": "2026-05-08T00:00:00.000Z",
+    "likes": 0
+  },
+  {
+    "ipo": "Belrise Industries",
+    "sourceUrl": "manual://sample/belrise-1",
+    "text": "Belrise IPO discussion looks quieter than expected, with people waiting for subscription data.",
+    "author": "manual_sample",
+    "timestamp": "2026-05-08T00:00:00.000Z",
+    "likes": 0
+  }
+]

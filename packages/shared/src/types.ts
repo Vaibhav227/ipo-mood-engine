@@ -27,7 +27,7 @@ export type IpoMatchResult = {
 
 export type CollectedTextItem = {
   ipoId?: string;
-  source: "reddit" | "news";
+  source: "reddit" | "news" | "manual";
   sourceUrl?: string;
   externalId: string;
   rawText: string;

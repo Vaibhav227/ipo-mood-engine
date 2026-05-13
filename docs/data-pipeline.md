@@ -3,7 +3,8 @@
 ## Sources
 
 - Reddit API for `IndiaInvestments`, `IndianStockMarket`, `DalalStreetTalks`, and `IndianStreetBets`.
-- Google News RSS search for seeded IPO aliases.
+- Google News RSS search for seeded IPO aliases, including source-specific searches for Livemint, Moneycontrol, CNBC TV18, Business Standard, and Economic Times.
+- Manual JSON import from `data/import/manual-text-items.json`.
 - Manual seeded IPO list in `data/seeds/ipos.json`.
 
 ## Storage
@@ -26,4 +27,11 @@ The pipeline uses deterministic external IDs for ingestion and deterministic dup
 
 See `.env.example`.
 
-If Reddit credentials are missing, Reddit ingestion uses small deterministic fixtures so the pipeline remains testable. News ingestion can run without credentials because it uses public RSS URLs.
+Reddit is optional in the daily pipeline and is disabled by default with `PIPELINE_ENABLE_REDDIT=false`. News ingestion can run without credentials because it uses public RSS URLs. Manual import can be used for copied forum, Telegram, X, or YouTube chatter during MVP demos.
+
+Before running ingestion against a hosted database, apply schema and seed data:
+
+```sh
+npm run db:deploy
+npm run db:seed
+```

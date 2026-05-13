@@ -9,8 +9,13 @@
   ],
   "scripts": {
     "db:migrate": "prisma migrate dev --schema packages/db/prisma/schema.prisma",
+    "db:deploy": "prisma migrate deploy --schema packages/db/prisma/schema.prisma",
+    "db:apply-schema": "tsx packages/db/src/applySchema.ts",
     "db:generate": "prisma generate --schema packages/db/prisma/schema.prisma",
+    "db:check": "tsx packages/db/src/checkDatabaseUrl.ts",
+    "db:ping": "tsx packages/db/src/ping.ts",
     "db:seed": "tsx packages/db/src/seed.ts",
+    "ingest:manual": "tsx apps/worker/src/commands/ingestManual.ts",
     "ingest:reddit": "tsx apps/worker/src/commands/ingestReddit.ts",
     "ingest:news": "tsx apps/worker/src/commands/ingestNews.ts",
     "clean:text": "tsx apps/worker/src/commands/cleanText.ts",

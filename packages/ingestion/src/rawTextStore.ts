@@ -1,47 +1,76 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { CollectedTextItem } from "../../shared/src/types.js";
+import { withTimeout } from "../../db/src/withTimeout.js";
+
+const chunk = <T>(items: T[], size: number) => {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+};
 
 export async function storeRawTextItems(prisma: PrismaClient, items: CollectedTextItem[]) {
-  let collected = 0;
-  let matched = 0;
+  const matched = items.filter((item) => item.matchStatus === "matched").length;
+  let inserted = 0;
+  const chunks = chunk(items, 100);
 
-  for (const item of items) {
-    const saved = await prisma.rawTextItem.upsert({
-      where: {
-        source_externalId: {
-          source: item.source,
-          externalId: item.externalId
-        }
-      },
-      update: {
-        ipoId: item.ipoId,
-        sourceUrl: item.sourceUrl,
-        rawText: item.rawText,
-        author: item.author,
-        timestamp: item.timestamp,
-        likes: item.likes,
-        commentsCount: item.commentsCount,
-        metadata: item.metadata as Prisma.InputJsonValue | undefined,
-        matchStatus: item.matchStatus
-      },
-      create: {
-        ipoId: item.ipoId,
-        source: item.source,
-        sourceUrl: item.sourceUrl,
-        externalId: item.externalId,
-        rawText: item.rawText,
-        author: item.author,
-        timestamp: item.timestamp,
-        likes: item.likes,
-        commentsCount: item.commentsCount,
-        metadata: item.metadata as Prisma.InputJsonValue | undefined,
-        matchStatus: item.matchStatus
+  for (const [index, batch] of chunks.entries()) {
+    console.log(`Storing raw text batch ${index + 1}/${chunks.length} (${batch.length} items)`);
+
+    try {
+      const result = await withTimeout(
+        prisma.rawTextItem.createMany({
+          data: batch.map((item) => ({
+            ipoId: item.ipoId,
+            source: item.source,
+            sourceUrl: item.sourceUrl,
+            externalId: item.externalId,
+            rawText: item.rawText,
+            author: item.author,
+            timestamp: item.timestamp,
+            likes: item.likes,
+            commentsCount: item.commentsCount,
+            metadata: item.metadata as Prisma.InputJsonValue | undefined,
+            matchStatus: item.matchStatus
+          })),
+          skipDuplicates: true
+        }),
+        `Store raw text batch ${index + 1}`,
+        15000
+      );
+      inserted += result.count;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes("Server has closed the connection") && !message.includes("P1017")) {
+        throw error;
       }
-    });
 
-    collected += saved.createdAt.getTime() === saved.updatedAt.getTime() ? 1 : 0;
-    if (item.matchStatus === "matched") matched += 1;
+      console.warn(`Retrying after closed DB connection for raw text batch ${index + 1}`);
+      await prisma.$disconnect();
+      const result = await withTimeout(
+        prisma.rawTextItem.createMany({
+          data: batch.map((item) => ({
+            ipoId: item.ipoId,
+            source: item.source,
+            sourceUrl: item.sourceUrl,
+            externalId: item.externalId,
+            rawText: item.rawText,
+            author: item.author,
+            timestamp: item.timestamp,
+            likes: item.likes,
+            commentsCount: item.commentsCount,
+            metadata: item.metadata as Prisma.InputJsonValue | undefined,
+            matchStatus: item.matchStatus
+          })),
+          skipDuplicates: true
+        }),
+        `Retry raw text batch ${index + 1}`,
+        15000
+      );
+      inserted += result.count;
+    }
   }
 
-  return { collected: items.length, matched };
+  return { collected: inserted, matched };
 }

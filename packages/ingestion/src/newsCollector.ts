@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { XMLParser } from "fast-xml-parser";
-import { optionalIntEnv } from "../../shared/src/env.js";
+import { optionalBooleanEnv, optionalIntEnv } from "../../shared/src/env.js";
 import type { CollectedTextItem, IpoMatchCandidate } from "../../shared/src/types.js";
 import { matchIpo } from "./ipoMatcher.js";
 
@@ -36,24 +36,59 @@ function stripHtml(value: string) {
 }
 
 function buildQueries(ipo: IpoMatchCandidate) {
-  return Array.from(new Set([ipo.name, ...ipo.aliases].map((alias) => `${alias} IPO India`)));
+  const includeSourceSearch = optionalBooleanEnv("PIPELINE_NEWS_INCLUDE_SOURCE_SEARCH", true);
+  const sourceSites = ["livemint.com", "moneycontrol.com", "cnbctv18.com", "business-standard.com", "economictimes.indiatimes.com"];
+  const aliasQueries = [
+    `${ipo.name} IPO India`,
+    `${ipo.name} GMP`,
+    `${ipo.name} subscription`
+  ];
+
+  if (includeSourceSearch) {
+    aliasQueries.push(...sourceSites.map((site) => `${ipo.name} IPO site:${site}`));
+  }
+
+  return Array.from(new Set(aliasQueries));
+}
+
+async function fetchWithTimeout(url: URL, timeoutMs: number) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function collectNewsItems(ipos: IpoMatchCandidate[]): Promise<CollectedTextItem[]> {
   const maxNewsPerIpo = optionalIntEnv("PIPELINE_MAX_NEWS_PER_IPO", 10);
+  const timeoutMs = optionalIntEnv("PIPELINE_NEWS_FETCH_TIMEOUT_MS", 8000);
   const items: CollectedTextItem[] = [];
 
   for (const ipo of ipos) {
-    for (const query of buildQueries(ipo)) {
+    const queries = buildQueries(ipo);
+    console.log(`Collecting news for ${ipo.slug}: ${queries.length} queries`);
+
+    for (const [queryIndex, query] of queries.entries()) {
       const url = new URL("https://news.google.com/rss/search");
       url.searchParams.set("q", query);
       url.searchParams.set("hl", "en-IN");
       url.searchParams.set("gl", "IN");
       url.searchParams.set("ceid", "IN:en");
 
-      const response = await fetch(url);
+      let response: Response;
+      try {
+        response = await fetchWithTimeout(url, timeoutMs);
+      } catch (error) {
+        console.warn(`News query timed out for ${ipo.slug} (${queryIndex + 1}/${queries.length}): ${query}`);
+        continue;
+      }
+
       if (!response.ok) {
-        throw new Error(`Google News RSS failed for ${query}: ${response.status} ${await response.text()}`);
+        console.warn(`Google News RSS failed for ${query}: ${response.status}`);
+        continue;
       }
 
       const xml = await response.text();
@@ -91,6 +126,8 @@ export async function collectNewsItems(ipos: IpoMatchCandidate[]): Promise<Colle
         });
       }
     }
+
+    console.log(`Collected ${items.filter((item) => item.ipoId === ipo.id).length} matched news items for ${ipo.slug}`);
   }
 
   return items;
