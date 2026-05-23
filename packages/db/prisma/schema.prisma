@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  engineType = "binary"
 }
 
 datasource db {
@@ -23,6 +24,7 @@ model Ipo {
   rawTextItems     RawTextItem[]
   cleanedTextItems CleanedTextItem[]
   embeddingRecords EmbeddingRecord[]
+  moodSnapshots    MoodScoreSnapshot[]
 }
 
 model RawTextItem {
@@ -100,4 +102,24 @@ model IngestionRun {
   pineconeUpserts      Int       @default(0)
   errors               Int       @default(0)
   metadata             Json?
+}
+
+model MoodScoreSnapshot {
+  id                    String   @id @default(cuid())
+  ipoId                 String
+  ipo                   Ipo      @relation(fields: [ipoId], references: [id])
+  snapshotDate          DateTime
+  sourceWindowStartedAt DateTime?
+  sourceWindowEndedAt   DateTime?
+  totalItems            Int
+  moodScores            Json
+  topNarratives         Json
+  personality           String
+  summary               String
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([ipoId, snapshotDate])
+  @@index([snapshotDate])
+  @@index([ipoId])
 }

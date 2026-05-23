@@ -6,33 +6,70 @@ export type PineconeTextRecord = {
   metadata: Record<string, string | number | boolean | null>;
 };
 
-export async function upsertPineconeTextRecords(records: PineconeTextRecord[]) {
-  if (records.length === 0) return 0;
+type PineconeEmbedResponse = {
+  data: Array<{
+    values: number[];
+  }>;
+};
 
-  const host = requiredEnv("PINECONE_HOST");
-  const namespace = process.env.PINECONE_NAMESPACE ?? "__default__";
-  const textField = process.env.PINECONE_TEXT_FIELD ?? "chunk_text";
-  const body = records
-    .map((record) =>
-      JSON.stringify({
-        _id: record.id,
-        [textField]: record.text,
-        ...record.metadata
-      })
-    )
-    .join("\n");
-
-  const response = await fetch(`https://${host}/records/namespaces/${encodeURIComponent(namespace)}/upsert`, {
+async function embedWithPinecone(records: PineconeTextRecord[]) {
+  const response = await fetch("https://api.pinecone.io/embed", {
     method: "POST",
     headers: {
       "Api-Key": requiredEnv("PINECONE_API_KEY"),
-      "Content-Type": "application/x-ndjson"
+      "Content-Type": "application/json",
+      "X-Pinecone-Api-Version": "2025-10"
     },
-    body
+    body: JSON.stringify({
+      model: process.env.PINECONE_EMBED_MODEL ?? "llama-text-embed-v2",
+      parameters: {
+        input_type: "passage",
+        truncate: "END"
+      },
+      inputs: records.map((record) => ({ text: record.text }))
+    })
   });
 
   if (!response.ok) {
-    throw new Error(`Pinecone integrated upsert failed: ${response.status} ${await response.text()}`);
+    throw new Error(`Pinecone embed failed: ${response.status} ${await response.text()}`);
+  }
+
+  const payload = (await response.json()) as PineconeEmbedResponse;
+  if (payload.data.length !== records.length) {
+    throw new Error(`Pinecone embed returned ${payload.data.length} vectors for ${records.length} records`);
+  }
+
+  return payload.data.map((item) => item.values);
+}
+
+export async function upsertPineconeTextRecords(records: PineconeTextRecord[]) {
+  if (records.length === 0) return 0;
+
+  const host = requiredEnv("PINECONE_HOST").replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const namespace = process.env.PINECONE_NAMESPACE?.trim();
+  const vectors = await embedWithPinecone(records);
+
+  const response = await fetch(`https://${host}/vectors/upsert`, {
+    method: "POST",
+    headers: {
+      "Api-Key": requiredEnv("PINECONE_API_KEY"),
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      ...(namespace ? { namespace } : {}),
+      vectors: records.map((record, index) => ({
+        id: record.id,
+        values: vectors[index],
+        metadata: {
+          ...record.metadata,
+          text: record.text
+        }
+      }))
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Pinecone vector upsert failed: ${response.status} ${await response.text()}`);
   }
 
   return records.length;
