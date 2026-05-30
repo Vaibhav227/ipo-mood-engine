@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { databaseUrlSummary } from "./databaseUrlSummary.js";
@@ -8,7 +8,7 @@ import { runDbScript } from "./runDbScript.js";
 import { withTimeout } from "./withTimeout.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
-const migrationPath = path.join(repoRoot, "packages/db/prisma/migrations/20260508000000_initial/migration.sql");
+const migrationsDir = path.join(repoRoot, "packages/db/prisma/migrations");
 
 const ignorableMessages = [
   "already exists",
@@ -31,27 +31,34 @@ async function main() {
   await withTimeout(prisma.$queryRaw`SELECT 1`, "Database connection", 10000);
   console.log("Database connection OK");
 
-  const sql = await readFile(migrationPath, "utf8");
-  const statements = splitSqlStatements(sql);
-  console.log(`Applying ${statements.length} SQL statements...`);
-
   let applied = 0;
   let skipped = 0;
+  const migrationNames = (await readdir(migrationsDir, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
 
-  for (const [index, statement] of statements.entries()) {
-    try {
-      await withTimeout(prisma.$executeRawUnsafe(statement), `SQL statement ${index + 1}`, 10000);
-      applied += 1;
-      console.log(`Applied statement ${index + 1}/${statements.length}`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const canSkip = ignorableMessages.some((text) => message.toLowerCase().includes(text));
-      if (!canSkip) {
-        throw error;
+  for (const migrationName of migrationNames) {
+    const migrationPath = path.join(migrationsDir, migrationName, "migration.sql");
+    const sql = await readFile(migrationPath, "utf8");
+    const statements = splitSqlStatements(sql);
+    console.log(`Applying migration ${migrationName}: ${statements.length} SQL statements`);
+
+    for (const [index, statement] of statements.entries()) {
+      try {
+        await withTimeout(prisma.$executeRawUnsafe(statement), `${migrationName} statement ${index + 1}`, 10000);
+        applied += 1;
+        console.log(`Applied ${migrationName} statement ${index + 1}/${statements.length}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const canSkip = ignorableMessages.some((text) => message.toLowerCase().includes(text));
+        if (!canSkip) {
+          throw error;
+        }
+
+        skipped += 1;
+        console.log(`Skipped existing ${migrationName} statement ${index + 1}/${statements.length}`);
       }
-
-      skipped += 1;
-      console.log(`Skipped existing statement ${index + 1}/${statements.length}`);
     }
   }
 

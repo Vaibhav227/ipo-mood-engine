@@ -16,7 +16,7 @@ Implemented so far:
 - Raw text storage.
 - Text cleaning, slang normalization, duplicate detection, and spam scoring.
 - Pinecone embedding/upsert flow using Pinecone Inference plus Pinecone vector upsert.
-- Mood taxonomy/scoring code has been started, but Week 2 scoring is not yet fully validated end to end.
+- Mood taxonomy, scoring, snapshots, and terminal reports.
 
 Confirmed Week 1 data run:
 
@@ -370,9 +370,9 @@ print run summary
 
 Note: the daily pipeline currently calls the Prisma embedding command. In this local setup, use `embeddings:generate:psql` manually if Prisma is flaky.
 
-## Mood Scoring Layer Started
+## Mood Scoring Layer
 
-Week 2 files already present:
+Week 2 files:
 
 ```txt
 packages/scoring/src/moodTaxonomy.ts
@@ -380,13 +380,19 @@ packages/scoring/src/moodScorer.ts
 apps/worker/src/commands/scoreMoodPsql.ts
 ```
 
-Intended command:
+Scoring command:
 
 ```sh
 npm run score:mood:psql
 ```
 
-What it is intended to do:
+Report command:
+
+```sh
+npm run report:mood:psql
+```
+
+What scoring does:
 
 - Read cleaned text per IPO.
 - Score against mood categories such as:
@@ -397,7 +403,10 @@ What it is intended to do:
   - `institutional_confidence`
 - Store daily `MoodScoreSnapshot` records.
 
-This layer was started but should be treated as Week 2 work until validated.
+What reporting does:
+
+- Reads the latest `MoodScoreSnapshot` per IPO.
+- Prints mood, item count, top scores, top narratives, and summary.
 
 ## Common Development Commands
 
@@ -412,6 +421,8 @@ npm run ingest:news
 npm run ingest:manual
 npm run clean:text
 npm run embeddings:generate:psql
+npm run score:mood:psql
+npm run report:mood:psql
 ```
 
 ## Known Environment Notes
@@ -470,6 +481,8 @@ npm run ingest:news
 npm run ingest:manual
 npm run clean:text
 npm run embeddings:generate:psql
+npm run score:mood:psql
+npm run report:mood:psql
 ```
 
 Then verify remaining embeddings:

@@ -78,7 +78,7 @@ export const moodTaxonomy: MoodDefinition[] = [
     key: "operator_hype",
     label: "Operator hype",
     weight: 1.2,
-    phrases: ["operator", "pump", "telegram", "whatsapp", "forwarded", "fake hype", "manipulated", "grey market"]
+    phrases: ["operator", "pump", "telegram", "whatsapp", "forwarded", "fake hype", "manipulated", "coordinated"]
   },
   {
     key: "listing_gain_expectation",

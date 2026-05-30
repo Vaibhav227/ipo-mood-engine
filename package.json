@@ -23,6 +23,7 @@
     "embeddings:generate": "tsx apps/worker/src/commands/generateEmbeddings.ts",
     "embeddings:generate:psql": "tsx apps/worker/src/commands/generateEmbeddingsPsql.ts",
     "score:mood:psql": "tsx apps/worker/src/commands/scoreMoodPsql.ts",
+    "report:mood:psql": "tsx apps/worker/src/commands/reportMoodPsql.ts",
     "pipeline:daily": "tsx apps/worker/src/commands/runDailyPipeline.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

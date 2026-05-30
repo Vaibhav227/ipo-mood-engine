@@ -11,8 +11,13 @@ type IpoWithText = {
 };
 
 const snapshotDate = () => {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  });
+  return `${formatter.format(new Date())}T00:00:00.000Z`;
 };
 
 const jsonSql = (value: unknown) => sqlString(JSON.stringify(value));

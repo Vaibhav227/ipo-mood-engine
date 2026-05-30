@@ -62,7 +62,9 @@ const clampScore = (value: number) => Math.max(0, Math.min(100, Math.round(value
 
 const choosePersonality = (scores: Record<MoodCategory, number>) => {
   if (scores.fomo_frenzy >= 60 && scores.valuation_concern >= 45) return "Hype-driven retail momentum with valuation anxiety";
-  if (scores.listing_gain_expectation >= 55 && scores.operator_hype >= 45) return "Listing-gain narrative with hype risk";
+  if (scores.listing_gain_expectation >= 45 && scores.operator_hype >= 35) return "Listing-gain narrative with hype risk";
+  if (scores.listing_gain_expectation >= 40 && scores.valuation_concern >= 10) return "Listing-gain excitement with valuation watch";
+  if (scores.listing_gain_expectation >= 35) return "Grey-market led listing-gain mood";
   if (scores.institutional_confidence >= 50 && scores.fomo_frenzy < 45) return "Silent institutional confidence with moderate public excitement";
   if (scores.low_conviction >= 45 && scores.confusion >= 35) return "Unclear demand with low conviction";
   if (scores.long_term_belief >= 50 && scores.valuation_concern < 45) return "Fundamental long-term belief story";
@@ -71,6 +73,7 @@ const choosePersonality = (scores: Record<MoodCategory, number>) => {
 
 const buildSummary = (scores: Record<MoodCategory, number>, personality: string) => {
   const strongest = Object.entries(scores)
+    .filter(([, value]) => value > 0)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 3)
     .map(([key, value]) => `${key.replace(/_/g, " ")} ${value}`);
