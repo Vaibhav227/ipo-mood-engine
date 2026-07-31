@@ -24,11 +24,10 @@ const bandForScore = (score) => {
 };
 const topDrivers = (scores, weights, minContribution = 2) => Object.entries(weights)
     .map(([key, weight]) => {
-    const moodKey = key;
-    const value = scores[moodKey] ?? 0;
+    const value = scores[key] ?? 0;
     return {
-        key: moodKey,
-        label: scoreLabels[moodKey],
+        key,
+        label: scoreLabels[key] ?? key,
         value,
         contribution: value * Math.abs(weight ?? 0)
     };

@@ -92,7 +92,8 @@ export async function getMarketMood() {
         for (const [key, value] of Object.entries(item.moodScores ?? {})) {
             scoreTotals.set(key, (scoreTotals.get(key) ?? 0) + Number(value));
         }
-        for (const [key, meter] of Object.entries(item.marketMeters)) {
+        for (const key of Object.keys(item.marketMeters)) {
+            const meter = item.marketMeters[key];
             meterTotals.set(key, (meterTotals.get(key) ?? 0) + meter.score);
         }
         for (const narrative of item.topNarratives ?? []) {

@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist-api",
+    "rootDir": ".",
+    "noEmit": false
+  },
+  "include": [
+    "apps/api/**/*.ts",
+    "packages/db/src/psql.ts",
+    "packages/scoring/src/marketMeters.ts"
+  ]
+}
