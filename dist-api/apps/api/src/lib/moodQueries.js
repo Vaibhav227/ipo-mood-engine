@@ -1,22 +1,18 @@
-import { psqlJson } from "../../../../packages/db/src/psql.js";
+import { prisma } from "../../../../packages/db/src/client.js";
 import { calculateMarketMeters } from "../../../../packages/scoring/src/marketMeters.js";
-const latestSnapshotWhere = `m."snapshotDate" = (SELECT MAX("snapshotDate") FROM "MoodScoreSnapshot")`;
-function escapeSql(value) {
-    return value.replace(/'/g, "''");
-}
-function snapshotSelect() {
-    return `
-    i.slug,
-    i.name,
-    m."snapshotDate"::date AS "snapshotDate",
-    m."sourceWindowStartedAt" AS "sourceWindowStartedAt",
-    m."sourceWindowEndedAt" AS "sourceWindowEndedAt",
-    m."totalItems" AS "totalItems",
-    m.personality,
-    m.summary,
-    m."moodScores" AS "moodScores",
-    m."topNarratives" AS "topNarratives"
-  `;
+function toSnapshotRow(snapshot) {
+    return {
+        slug: snapshot.ipo.slug,
+        name: snapshot.ipo.name,
+        snapshotDate: snapshot.snapshotDate.toISOString().slice(0, 10),
+        sourceWindowStartedAt: snapshot.sourceWindowStartedAt?.toISOString() ?? null,
+        sourceWindowEndedAt: snapshot.sourceWindowEndedAt?.toISOString() ?? null,
+        totalItems: snapshot.totalItems,
+        personality: snapshot.personality,
+        summary: snapshot.summary,
+        moodScores: snapshot.moodScores,
+        topNarratives: snapshot.topNarratives
+    };
 }
 function withMarketMeters(item) {
     return {
@@ -27,18 +23,21 @@ function withMarketMeters(item) {
 function addMarketMeters(items) {
     return items.map((item) => withMarketMeters(item));
 }
+const ipoSelect = { slug: true, name: true };
 export async function getLatestMoodSnapshots() {
-    const items = (await psqlJson(`
-      SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json)
-      FROM (
-        SELECT ${snapshotSelect()}
-        FROM "MoodScoreSnapshot" m
-        JOIN "Ipo" i ON i.id = m."ipoId"
-        WHERE ${latestSnapshotWhere}
-        ORDER BY i.slug
-      ) t;
-    `)) ?? [];
-    const snapshots = addMarketMeters(items);
+    const latest = await prisma.moodScoreSnapshot.aggregate({
+        _max: { snapshotDate: true }
+    });
+    const latestDate = latest._max.snapshotDate;
+    if (!latestDate) {
+        return { date: null, count: 0, items: [] };
+    }
+    const rows = await prisma.moodScoreSnapshot.findMany({
+        where: { snapshotDate: latestDate },
+        include: { ipo: { select: ipoSelect } },
+        orderBy: { ipo: { slug: "asc" } }
+    });
+    const snapshots = addMarketMeters(rows.map(toSnapshotRow));
     return {
         date: snapshots[0]?.snapshotDate ?? null,
         count: snapshots.length,
@@ -46,32 +45,21 @@ export async function getLatestMoodSnapshots() {
     };
 }
 export async function getLatestMoodBySlug(slug) {
-    const item = await psqlJson(`
-    SELECT row_to_json(t)
-    FROM (
-      SELECT ${snapshotSelect()}
-      FROM "MoodScoreSnapshot" m
-      JOIN "Ipo" i ON i.id = m."ipoId"
-      WHERE i.slug = '${escapeSql(slug)}'
-      ORDER BY m."snapshotDate" DESC
-      LIMIT 1
-    ) t;
-  `);
-    return item ? withMarketMeters(item) : null;
+    const row = await prisma.moodScoreSnapshot.findFirst({
+        where: { ipo: { slug } },
+        include: { ipo: { select: ipoSelect } },
+        orderBy: { snapshotDate: "desc" }
+    });
+    return row ? withMarketMeters(toSnapshotRow(row)) : null;
 }
 export async function getMoodHistoryBySlug(slug, limit) {
-    const rows = (await psqlJson(`
-      SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json)
-      FROM (
-        SELECT ${snapshotSelect()}
-        FROM "MoodScoreSnapshot" m
-        JOIN "Ipo" i ON i.id = m."ipoId"
-        WHERE i.slug = '${escapeSql(slug)}'
-        ORDER BY m."snapshotDate" DESC
-        LIMIT ${limit}
-      ) t;
-    `)) ?? [];
-    const items = addMarketMeters(rows);
+    const rows = await prisma.moodScoreSnapshot.findMany({
+        where: { ipo: { slug } },
+        include: { ipo: { select: ipoSelect } },
+        orderBy: { snapshotDate: "desc" },
+        take: limit
+    });
+    const items = addMarketMeters(rows.map(toSnapshotRow));
     return {
         slug,
         name: items[0]?.name ?? null,
@@ -92,7 +80,7 @@ export async function getMarketMood() {
         for (const [key, value] of Object.entries(item.moodScores ?? {})) {
             scoreTotals.set(key, (scoreTotals.get(key) ?? 0) + Number(value));
         }
-        for (const key of Object.keys(item.marketMeters)) {
+        for (const key of ["listing_gain_potential", "long_term_benefit"]) {
             const meter = item.marketMeters[key];
             meterTotals.set(key, (meterTotals.get(key) ?? 0) + meter.score);
         }

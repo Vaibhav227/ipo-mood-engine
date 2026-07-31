@@ -1,4 +1,4 @@
-import { psqlJson } from "../../../../packages/db/src/psql.js";
+import { prisma } from "../../../../packages/db/src/client.js";
 import { calculateMarketMeters, type MarketMeters } from "../../../../packages/scoring/src/marketMeters.js";
 
 type MoodSnapshotRow = {
@@ -18,25 +18,31 @@ type MoodSnapshot = MoodSnapshotRow & {
   marketMeters: MarketMeters;
 };
 
-const latestSnapshotWhere = `m."snapshotDate" = (SELECT MAX("snapshotDate") FROM "MoodScoreSnapshot")`;
+type SnapshotWithIpo = {
+  snapshotDate: Date;
+  sourceWindowStartedAt: Date | null;
+  sourceWindowEndedAt: Date | null;
+  totalItems: number;
+  personality: string;
+  summary: string;
+  moodScores: unknown;
+  topNarratives: unknown;
+  ipo: { slug: string; name: string };
+};
 
-function escapeSql(value: string) {
-  return value.replace(/'/g, "''");
-}
-
-function snapshotSelect() {
-  return `
-    i.slug,
-    i.name,
-    m."snapshotDate"::date AS "snapshotDate",
-    m."sourceWindowStartedAt" AS "sourceWindowStartedAt",
-    m."sourceWindowEndedAt" AS "sourceWindowEndedAt",
-    m."totalItems" AS "totalItems",
-    m.personality,
-    m.summary,
-    m."moodScores" AS "moodScores",
-    m."topNarratives" AS "topNarratives"
-  `;
+function toSnapshotRow(snapshot: SnapshotWithIpo): MoodSnapshotRow {
+  return {
+    slug: snapshot.ipo.slug,
+    name: snapshot.ipo.name,
+    snapshotDate: snapshot.snapshotDate.toISOString().slice(0, 10),
+    sourceWindowStartedAt: snapshot.sourceWindowStartedAt?.toISOString() ?? null,
+    sourceWindowEndedAt: snapshot.sourceWindowEndedAt?.toISOString() ?? null,
+    totalItems: snapshot.totalItems,
+    personality: snapshot.personality,
+    summary: snapshot.summary,
+    moodScores: snapshot.moodScores as Record<string, number>,
+    topNarratives: snapshot.topNarratives as Array<{ phrase: string; count: number }>
+  };
 }
 
 function withMarketMeters(item: MoodSnapshotRow): MoodSnapshot {
@@ -50,20 +56,25 @@ function addMarketMeters(items: MoodSnapshotRow[]) {
   return items.map((item) => withMarketMeters(item));
 }
 
-export async function getLatestMoodSnapshots() {
-  const items =
-    (await psqlJson<MoodSnapshotRow[]>(`
-      SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json)
-      FROM (
-        SELECT ${snapshotSelect()}
-        FROM "MoodScoreSnapshot" m
-        JOIN "Ipo" i ON i.id = m."ipoId"
-        WHERE ${latestSnapshotWhere}
-        ORDER BY i.slug
-      ) t;
-    `)) ?? [];
+const ipoSelect = { slug: true, name: true } as const;
 
-  const snapshots = addMarketMeters(items);
+export async function getLatestMoodSnapshots() {
+  const latest = await prisma.moodScoreSnapshot.aggregate({
+    _max: { snapshotDate: true }
+  });
+  const latestDate = latest._max.snapshotDate;
+
+  if (!latestDate) {
+    return { date: null, count: 0, items: [] };
+  }
+
+  const rows = await prisma.moodScoreSnapshot.findMany({
+    where: { snapshotDate: latestDate },
+    include: { ipo: { select: ipoSelect } },
+    orderBy: { ipo: { slug: "asc" } }
+  });
+
+  const snapshots = addMarketMeters(rows.map(toSnapshotRow));
 
   return {
     date: snapshots[0]?.snapshotDate ?? null,
@@ -73,36 +84,24 @@ export async function getLatestMoodSnapshots() {
 }
 
 export async function getLatestMoodBySlug(slug: string) {
-  const item = await psqlJson<MoodSnapshotRow | null>(`
-    SELECT row_to_json(t)
-    FROM (
-      SELECT ${snapshotSelect()}
-      FROM "MoodScoreSnapshot" m
-      JOIN "Ipo" i ON i.id = m."ipoId"
-      WHERE i.slug = '${escapeSql(slug)}'
-      ORDER BY m."snapshotDate" DESC
-      LIMIT 1
-    ) t;
-  `);
+  const row = await prisma.moodScoreSnapshot.findFirst({
+    where: { ipo: { slug } },
+    include: { ipo: { select: ipoSelect } },
+    orderBy: { snapshotDate: "desc" }
+  });
 
-  return item ? withMarketMeters(item) : null;
+  return row ? withMarketMeters(toSnapshotRow(row)) : null;
 }
 
 export async function getMoodHistoryBySlug(slug: string, limit: number) {
-  const rows =
-    (await psqlJson<MoodSnapshotRow[]>(`
-      SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json)
-      FROM (
-        SELECT ${snapshotSelect()}
-        FROM "MoodScoreSnapshot" m
-        JOIN "Ipo" i ON i.id = m."ipoId"
-        WHERE i.slug = '${escapeSql(slug)}'
-        ORDER BY m."snapshotDate" DESC
-        LIMIT ${limit}
-      ) t;
-    `)) ?? [];
+  const rows = await prisma.moodScoreSnapshot.findMany({
+    where: { ipo: { slug } },
+    include: { ipo: { select: ipoSelect } },
+    orderBy: { snapshotDate: "desc" },
+    take: limit
+  });
 
-  const items = addMarketMeters(rows);
+  const items = addMarketMeters(rows.map(toSnapshotRow));
 
   return {
     slug,

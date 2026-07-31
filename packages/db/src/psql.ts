@@ -3,6 +3,10 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
+function psqlBin() {
+  return process.env.PSQL_BIN ?? "psql";
+}
+
 function cleanDatabaseUrl() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
@@ -14,7 +18,7 @@ function cleanDatabaseUrl() {
 
 export async function psqlJson<T>(sql: string): Promise<T> {
   const { stdout } = await execFileAsync(
-    "/opt/homebrew/bin/psql",
+    psqlBin(),
     [cleanDatabaseUrl(), "-t", "-A", "-c", sql],
     {
       maxBuffer: 1024 * 1024 * 20
@@ -26,7 +30,7 @@ export async function psqlJson<T>(sql: string): Promise<T> {
 }
 
 export async function psqlExec(sql: string) {
-  await execFileAsync("/opt/homebrew/bin/psql", [cleanDatabaseUrl(), "-v", "ON_ERROR_STOP=1", "-c", sql], {
+  await execFileAsync(psqlBin(), [cleanDatabaseUrl(), "-v", "ON_ERROR_STOP=1", "-c", sql], {
     maxBuffer: 1024 * 1024 * 20
   });
 }
