@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: ipo-mood-engine-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile.api
+    healthCheckPath: /health
+    envVars:
+      - key: API_PORT
+        value: 4000
+      - key: API_ALLOWED_ORIGINS
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: PINECONE_HOST
+        sync: false
+      - key: PINECONE_INDEX
+        sync: false

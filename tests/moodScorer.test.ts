@@ -85,4 +85,66 @@ describe("scoreMood", () => {
 
     expect(recent.scores.listing_gain_expectation).toBeGreaterThan(stale.scores.listing_gain_expectation);
   });
+
+  it("creates a higher listing-gain meter for GMP-led momentum than long-term benefit", () => {
+    const result = scoreMood([
+      {
+        text: "grey market premium is rising with strong listing gain expectation",
+        source: "news",
+        timestamp: now,
+        likes: 0,
+        spamScore: 0
+      },
+      {
+        text: "retail fomo and listing pop demand remain strong",
+        source: "manual",
+        timestamp: now,
+        likes: 8,
+        spamScore: 0
+      },
+      {
+        text: "valuation looks expensive but listing gains are expected",
+        source: "news",
+        timestamp: now,
+        likes: 0,
+        spamScore: 0
+      }
+    ]);
+
+    expect(result.marketMeters.listing_gain_potential.score).toBeGreaterThan(
+      result.marketMeters.long_term_benefit.score
+    );
+    expect(result.marketMeters.listing_gain_potential.verdict).toContain("Listing-gain");
+  });
+
+  it("creates a higher long-term benefit meter when conviction and fundamentals dominate", () => {
+    const result = scoreMood([
+      {
+        text: "strong fundamentals and long term growth story with profitability",
+        source: "news",
+        timestamp: now,
+        likes: 0,
+        spamScore: 0
+      },
+      {
+        text: "institutional qualified institutional buyer interest and anchor investor confidence",
+        source: "news",
+        timestamp: now,
+        likes: 0,
+        spamScore: 0
+      },
+      {
+        text: "quality business model worth holding for long term",
+        source: "manual",
+        timestamp: now,
+        likes: 4,
+        spamScore: 0
+      }
+    ]);
+
+    expect(result.marketMeters.long_term_benefit.score).toBeGreaterThan(
+      result.marketMeters.listing_gain_potential.score
+    );
+    expect(result.marketMeters.long_term_benefit.verdict).toMatch(/Long-term|Promising/);
+  });
 });

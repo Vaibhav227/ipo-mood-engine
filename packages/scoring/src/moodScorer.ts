@@ -1,3 +1,4 @@
+import { calculateMarketMeters, type MarketMeters } from "./marketMeters.js";
 import { moodTaxonomy, narrativePhrases, type MoodCategory } from "./moodTaxonomy.js";
 
 export type MoodInputItem = {
@@ -10,6 +11,7 @@ export type MoodInputItem = {
 
 export type MoodScoreResult = {
   scores: Record<MoodCategory, number>;
+  marketMeters: MarketMeters;
   topNarratives: Array<{ phrase: string; count: number }>;
   personality: string;
   summary: string;
@@ -115,9 +117,11 @@ export function scoreMood(items: MoodInputItem[]): MoodScoreResult {
 
   const personality = choosePersonality(scores);
   const summary = buildSummary(scores, personality);
+  const marketMeters = calculateMarketMeters(scores);
 
   return {
     scores,
+    marketMeters,
     topNarratives,
     personality,
     summary

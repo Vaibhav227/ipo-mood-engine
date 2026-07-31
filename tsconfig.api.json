@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist-api",
+    "types": ["node"]
+  },
+  "include": ["apps/api/**/*.ts", "packages/db/src/psql.ts"]
+}

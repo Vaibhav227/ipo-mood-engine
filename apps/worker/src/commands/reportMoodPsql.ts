@@ -1,5 +1,7 @@
 import "dotenv/config";
 import { psqlJson } from "../../../../packages/db/src/psql.js";
+import { calculateMarketMeters } from "../../../../packages/scoring/src/marketMeters.js";
+import type { MoodCategory } from "../../../../packages/scoring/src/moodTaxonomy.js";
 
 type MoodReportRow = {
   slug: string;
@@ -63,6 +65,10 @@ async function main() {
     console.log(`  Mood: ${row.personality}`);
     console.log(`  Items: ${row.totalItems}`);
     console.log(`  Scores: ${topScores(row.moodScores) || "none"}`);
+    const meters = calculateMarketMeters(row.moodScores as Record<MoodCategory, number>);
+    console.log(
+      `  Meters: ${meters.listing_gain_potential.label} ${meters.listing_gain_potential.score} (${meters.listing_gain_potential.verdict}); ${meters.long_term_benefit.label} ${meters.long_term_benefit.score} (${meters.long_term_benefit.verdict})`
+    );
     console.log(`  Narratives: ${topNarratives(row.topNarratives)}`);
     console.log(`  Summary: ${row.summary}`);
     console.log("");

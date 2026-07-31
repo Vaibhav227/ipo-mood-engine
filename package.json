@@ -25,13 +25,18 @@
     "score:mood:psql": "tsx apps/worker/src/commands/scoreMoodPsql.ts",
     "report:mood:psql": "tsx apps/worker/src/commands/reportMoodPsql.ts",
     "pipeline:daily": "tsx apps/worker/src/commands/runDailyPipeline.ts",
+    "dev:api": "tsx apps/api/src/server.ts",
+    "build:api": "tsc -p tsconfig.api.json",
+    "start:api": "node dist-api/apps/api/src/server.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@hono/node-server": "^2.0.4",
     "@prisma/client": "^5.22.0",
     "dotenv": "^16.4.7",
-    "fast-xml-parser": "^4.5.0"
+    "fast-xml-parser": "^4.5.0",
+    "hono": "^4.12.23"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
